@@ -285,7 +285,7 @@ public class EdgePanelWindow : Window
     // MARK: Hover / expand logic (mirrors PanelController)
 
     private bool IsHovered => _menuOpen || WindowHelper.IsCursorOver(this)
-        || (_detail.IsShown && WindowHelper.IsCursorOver(_detail));
+        || (_detail.IsShown && WindowHelper.IsCursorOver(_detail, DetailWindow.ShadowPad));
 
     private void HoverStateChanged()
     {

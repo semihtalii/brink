@@ -34,6 +34,9 @@ public static class WindowHelper
         return reference.PointFromScreen(new Point(p.X, p.Y));
     }
 
-    public static bool IsCursorOver(Window window) => window.IsVisible
-        && new Rect(0, 0, window.ActualWidth, window.ActualHeight).Contains(CursorDip(window));
+    /// `inset` trims transparent padding (e.g. a drop-shadow margin) that the user
+    /// can't see and shouldn't count as "on the window".
+    public static bool IsCursorOver(Window window, double inset = 0) => window.IsVisible
+        && new Rect(inset, inset, Math.Max(window.ActualWidth - inset * 2, 0),
+                    Math.Max(window.ActualHeight - inset * 2, 0)).Contains(CursorDip(window));
 }
