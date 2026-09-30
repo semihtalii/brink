@@ -27,11 +27,13 @@ public static class WindowHelper
             GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
     }
 
-    /// Cursor position in the given window's DIP coordinate space (screen origin).
+    /// Cursor position relative to the visual, converted from physical screen pixels.
     public static Point CursorDip(Visual reference)
     {
-        GetCursorPos(out var p);
-        var dpi = VisualTreeHelper.GetDpi(reference);
-        return new Point(p.X / dpi.DpiScaleX, p.Y / dpi.DpiScaleY);
+        if (!GetCursorPos(out var p)) return new Point(double.NaN, double.NaN);
+        return reference.PointFromScreen(new Point(p.X, p.Y));
     }
+
+    public static bool IsCursorOver(Window window) => window.IsVisible
+        && new Rect(0, 0, window.ActualWidth, window.ActualHeight).Contains(CursorDip(window));
 }

@@ -26,7 +26,6 @@ public class EdgePanelWindow : Window
     public const double StripHeight = 153;
     public const double CollapsedWidth = 14;
     public const double ExpandedWidth = TabWidth + 24;
-    public const double FarAwayDistance = 480;
 
     private readonly UsageStore _store;
     private readonly DetailWindow _detail;
@@ -36,7 +35,7 @@ public class EdgePanelWindow : Window
     private Grid _tab = null!;
     private TranslateTransform _tabOffset = null!;
 
-    private bool _expanded, _panelHovered, _detailHovered, _menuOpen;
+    private bool _expanded, _menuOpen;
     private DispatcherTimer? _collapseTimer;
     private readonly DispatcherTimer _farAwayTimer;
 
@@ -55,10 +54,7 @@ public class EdgePanelWindow : Window
         ShowActivated = false;
         Focusable = false;
 
-        _detail = new DetailWindow(BuildMenu)
-        {
-            HoverChanged = inside => { _detailHovered = inside; HoverStateChanged(); },
-        };
+        _detail = new DetailWindow(BuildMenu) { HoverChanged = _ => HoverStateChanged() };
 
         SourceInitialized += (_, _) => WindowHelper.MakeUnfocusablePanel(this);
         _store.Updated += () => Dispatcher.Invoke(Render);
@@ -78,19 +74,9 @@ public class EdgePanelWindow : Window
         Render();
         PositionWindow();
 
-        // Collapse when the cursor wanders far from the edge (mockup: > 480px).
+        // Reconcile actual cursor bounds even if a non-activating window misses MouseLeave.
         _farAwayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        _farAwayTimer.Tick += (_, _) =>
-        {
-            if (!_expanded || _menuOpen) return;
-            var cursor = WindowHelper.CursorDip(this);
-            if (cursor.X < SystemParameters.WorkArea.Right - FarAwayDistance)
-            {
-                _panelHovered = false;
-                _detailHovered = false;
-                HoverStateChanged();
-            }
-        };
+        _farAwayTimer.Tick += (_, _) => HoverStateChanged();
         _farAwayTimer.Start();
     }
 
@@ -122,8 +108,8 @@ public class EdgePanelWindow : Window
             // Nearly-invisible but hit-testable, so hover works across the panel.
             Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)),
         };
-        _root.MouseEnter += (_, _) => { _panelHovered = true; HoverStateChanged(); };
-        _root.MouseLeave += (_, _) => { _panelHovered = false; HoverStateChanged(); };
+        _root.MouseEnter += (_, _) => HoverStateChanged();
+        _root.MouseLeave += (_, _) => HoverStateChanged();
         _root.ContextMenu = BuildMenu();
 
         // Collapsed strip
@@ -152,7 +138,7 @@ public class EdgePanelWindow : Window
         Content = _root;
         PositionWindow();
 
-        if (_detail.IsShown) _detail.Refresh(_store.Snapshots);
+        if (_detail.IsShown) _detail.Refresh(VisibleSnapshots);
     }
 
     private Grid BuildTab(Palette palette)
@@ -246,7 +232,8 @@ public class EdgePanelWindow : Window
             Margin = new Thickness(0, 6, 0, 0),
         };
 
-        var block = new StackPanel { Orientation = Orientation.Vertical, Height = RingBlockHeight };
+        // A fixed height creates a layout clip that cuts off the scaled ring at the top.
+        var block = new StackPanel { Orientation = Orientation.Vertical, MinHeight = RingBlockHeight };
         block.Children.Add(ringGrid);
         block.Children.Add(label);
         block.Background = Brushes.Transparent;
@@ -297,10 +284,14 @@ public class EdgePanelWindow : Window
 
     // MARK: Hover / expand logic (mirrors PanelController)
 
+    private bool IsHovered => _menuOpen || WindowHelper.IsCursorOver(this)
+        || (_detail.IsShown && WindowHelper.IsCursorOver(_detail));
+
     private void HoverStateChanged()
     {
-        if (_panelHovered || _detailHovered || _menuOpen)
+        if (IsHovered)
         {
+            _detail.CancelHide();
             _collapseTimer?.Stop();
             _collapseTimer = null;
             if (!_expanded) Expand();
@@ -327,14 +318,15 @@ public class EdgePanelWindow : Window
 
     private void ScheduleCollapse()
     {
-        _collapseTimer?.Stop();
+        if (_collapseTimer != null || (!_expanded && !_detail.IsShown)) return;
         _collapseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _collapseTimer.Tick += (_, _) =>
         {
             _collapseTimer?.Stop();
             _collapseTimer = null;
-            if (_panelHovered || _detailHovered || _menuOpen || !_expanded) return;
-            Collapse();
+            if (IsHovered) { HoverStateChanged(); return; }
+            if (_expanded) Collapse();
+            else _detail.HideSoon();
         };
         _collapseTimer.Start();
     }
