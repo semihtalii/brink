@@ -80,20 +80,20 @@ public class DetailWindow : Window
         Content = _canvas;
     }
 
-    private List<ProviderSnapshot>? _lastSnapshots;
     private double _lastRingY;
+    private List<ProviderSnapshot>? _pendingSnapshots;
 
     public void ShowFor(ProviderSnapshot snap, double ringScreenY, Palette palette)
     {
-        _hideTimer?.Stop();
-        _hideTimer = null;
+        _pendingSnapshots = null;
+        CancelHide();
         _lastRingY = ringScreenY;
 
         _card.Background = new SolidColorBrush(palette.Tint);
         _card.BorderBrush = new SolidColorBrush(palette.CardBorder);
         _tail.Fill = new SolidColorBrush(palette.Tint);
         _card.Child = BuildCard(snap, palette);
-        _canvas.ContextMenu = _menuFactory();
+        if (_canvas.ContextMenu?.IsOpen != true) _canvas.ContextMenu = _menuFactory();
 
         // Measure the card for this snapshot.
         _card.Measure(new Size(CardWidth, double.PositiveInfinity));
@@ -127,11 +127,28 @@ public class DetailWindow : Window
         }
     }
 
+    public void CancelHide()
+    {
+        if (!IsShown || _hideTimer == null) return;
+        _hideTimer.Stop();
+        _hideTimer = null;
+        if (_pendingSnapshots is { } snapshots)
+        {
+            _pendingSnapshots = null;
+            Refresh(snapshots);
+            if (!IsShown) return;
+        }
+        _canvas.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(300))
+            { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+    }
+
     /// Re-render the open card after a data refresh.
     public void Refresh(List<ProviderSnapshot> snapshots)
     {
-        _lastSnapshots = snapshots;
         if (!IsShown || _currentId == null) return;
+        // A refresh must not cancel a fade, but reentry still needs the latest data.
+        if (_hideTimer != null) { _pendingSnapshots = snapshots; return; }
         var snap = snapshots.FirstOrDefault(s => s.Id == _currentId);
         if (snap == null) { HideNow(); return; }
         ShowFor(snap, _lastRingY, Palette.Resolve(ThemeExtensions.FromKey(Settings.Shared.Theme)));
@@ -139,11 +156,10 @@ public class DetailWindow : Window
 
     public void HideSoon()
     {
-        if (!IsShown) return;
+        if (!IsShown || _hideTimer != null) return;
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         _canvas.BeginAnimation(OpacityProperty,
             new DoubleAnimation(0, TimeSpan.FromMilliseconds(250)) { EasingFunction = ease });
-        _hideTimer?.Stop();
         _hideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
         _hideTimer.Tick += (_, _) =>
         {
@@ -156,6 +172,9 @@ public class DetailWindow : Window
 
     private void HideNow()
     {
+        _hideTimer?.Stop();
+        _hideTimer = null;
+        _pendingSnapshots = null;
         IsShown = false;
         _currentId = null;
         Hide();
