@@ -79,8 +79,9 @@ public class CodexProvider : IUsageProvider
     // MARK: Parsing
 
     /// Expected shape (fields defensively probed):
-    /// { "rate_limit": { "primary_window": { "used_percent": 21, ... },
-    ///                   "secondary_window": { "used_percent": 52, ... } } }
+    /// { "rate_limit": { "primary_window": { "used_percent": 21, "limit_window_seconds": 18000,
+    ///                                       "reset_after_seconds": 3600, "reset_at": 1790000000 },
+    ///                   "secondary_window": { ... } | null } }
     public static List<UsageWindow> ParseUsage(string data)
     {
         var windows = new List<UsageWindow>();
@@ -95,39 +96,70 @@ public class CodexProvider : IUsageProvider
             else if (root.TryGetProperty("rate_limits", out var rls) && rls.ValueKind == JsonValueKind.Object)
                 rateLimit = rls;
 
-            (string Key, string Label)[] ordered =
-            {
-                ("primary_window", "Current session"),
-                ("primary", "Current session"),
-                ("secondary_window", "Weekly"),
-                ("secondary", "Weekly"),
-            };
-            var seen = new HashSet<string>();
-            foreach (var (key, label) in ordered)
-            {
-                if (seen.Contains(label)) continue;
-                if (!rateLimit.TryGetProperty(key, out var dict) || dict.ValueKind != JsonValueKind.Object) continue;
-                var pct = ClaudeProvider.GetNumber(dict, "used_percent");
-                if (pct == null) continue;
-                windows.Add(new UsageWindow { Label = label, UsedPercent = pct.Value, ResetsAt = ResetDate(dict) });
-                seen.Add(label);
-            }
+            AddWindows(windows, rateLimit);
         }
         catch { }
         return windows;
     }
 
+    // The API has two slots (primary/secondary), but which one holds the 5-hour
+    // window and which the weekly one depends on the plan: a Pro plan can send
+    // only a 7-day primary_window. So the label comes from the window's length.
+    private const double SessionSeconds = 5 * 3600;
+    private const double WeekSeconds = 7 * 86400;
+    private const double DurationTolerance = 0.1;
+
+    private static readonly (string Key, string FallbackLabel)[] Slots =
+    {
+        ("primary_window", "Current session"),
+        ("primary", "Current session"),
+        ("secondary_window", "Weekly limit"),
+        ("secondary", "Weekly limit"),
+    };
+
+    private static void AddWindows(List<UsageWindow> windows, JsonElement rateLimit)
+    {
+        foreach (var (key, fallback) in Slots)
+        {
+            if (!rateLimit.TryGetProperty(key, out var dict) || dict.ValueKind != JsonValueKind.Object) continue;
+            var pct = ClaudeProvider.GetNumber(dict, "used_percent");
+            if (pct == null) continue;
+            var label = LabelFor(dict, fallback);
+            if (windows.Any(w => w.Label == label)) continue;
+            windows.Add(new UsageWindow { Label = label, UsedPercent = pct.Value, ResetsAt = ResetDate(dict) });
+        }
+    }
+
+    private static string LabelFor(JsonElement dict, string fallback)
+    {
+        if (ClaudeProvider.GetNumber(dict, "limit_window_seconds") is double seconds)
+        {
+            if (IsAbout(seconds, SessionSeconds)) return "5-hour limit";
+            if (IsAbout(seconds, WeekSeconds)) return "Weekly limit";
+        }
+        return fallback;
+    }
+
+    private static bool IsAbout(double seconds, double target) =>
+        Math.Abs(seconds - target) <= target * DurationTolerance;
+
     private static DateTime? ResetDate(JsonElement dict)
     {
-        if (ClaudeProvider.GetNumber(dict, "resets_in_seconds") is double s)
-            return DateTime.Now.AddSeconds(s);
-        if (ClaudeProvider.GetIsoDate(dict, "resets_at") is DateTime iso)
-            return iso;
-        if (ClaudeProvider.GetNumber(dict, "resets_at") is double epoch)
+        foreach (var key in new[] { "reset_after_seconds", "resets_in_seconds" })
+            if (ClaudeProvider.GetNumber(dict, key) is double s)
+                return DateTime.Now.AddSeconds(s);
+        foreach (var key in new[] { "reset_at", "resets_at" })
         {
-            // Could be seconds or milliseconds since epoch.
-            var seconds = epoch > 10_000_000_000 ? epoch / 1000.0 : epoch;
-            return DateTimeOffset.FromUnixTimeSeconds((long)seconds).LocalDateTime;
+            if (ClaudeProvider.GetIsoDate(dict, key) is DateTime iso)
+                return iso;
+            if (ClaudeProvider.GetNumber(dict, key) is double epoch)
+            {
+                // Could be seconds or milliseconds since epoch.
+                var seconds = epoch > 10_000_000_000 ? epoch / 1000.0 : epoch;
+                // Out-of-range values must not abort parsing of the other windows.
+                if (seconds is < 0 or > 253_402_300_799) return null;
+                return DateTimeOffset.FromUnixTimeSeconds((long)seconds).LocalDateTime;
+            }
         }
         return null;
     }

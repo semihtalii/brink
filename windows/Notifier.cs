@@ -38,10 +38,10 @@ public class Notifier
     public void SendTest()
     {
         var when = " " + L("Resets in %d min", 51).LowercasedFirst() + ".";
-        Post(L("%@ — %@ limit reached", "Claude", L("Current session")),
+        Post(L("%@ — %@ limit reached", "Claude", NotificationName("5-hour limit")),
              L("You've used 100 %%.%@ I'll let you know when it resets.", when));
         Schedule("test-reset",
-             L("%@ — %@ reset", "Claude", L("Current session")),
+             L("%@ — %@ reset", "Claude", NotificationName("5-hour limit")),
              L("Your full limit is available again."),
              DateTime.Now.AddSeconds(6));
     }
@@ -85,16 +85,25 @@ public class Notifier
 
     // MARK: Messages
 
+    /// Notification titles read "<name> limit reached", so the card labels that
+    /// already end in "limit" are shortened ("5-hour limit" -> "5-hour").
+    private static string NotificationName(string label) => label switch
+    {
+        "5-hour limit" => L("5-hour"),
+        "Weekly limit" => L("Weekly"),
+        _ => L(label),
+    };
+
     private void NotifyFull(ProviderSnapshot snap, UsageWindow w)
     {
         var when = w.ResetText is string t ? " " + t.LowercasedFirst() + "." : "";
-        Post(L("%@ — %@ limit reached", snap.Name, L(w.Label)),
+        Post(L("%@ — %@ limit reached", snap.Name, NotificationName(w.Label)),
              L("You've used 100 %%.%@ I'll let you know when it resets.", when));
     }
 
     private void NotifyReset(ProviderSnapshot snap, UsageWindow w)
     {
-        Post(L("%@ — %@ reset", snap.Name, L(w.Label)),
+        Post(L("%@ — %@ reset", snap.Name, NotificationName(w.Label)),
              L("Your full limit is available again."));
     }
 
@@ -104,7 +113,7 @@ public class Notifier
         var fireAt = resetsAt.AddSeconds(20);   // small grace for clock skew
         if (fireAt <= DateTime.Now.AddSeconds(1)) return;
         Schedule(ToastId(key),
-            L("%@ — %@ reset", snap.Name, L(w.Label)),
+            L("%@ — %@ reset", snap.Name, NotificationName(w.Label)),
             L("Your full limit is available again."),
             fireAt);
         _scheduledResets.Add(key);
