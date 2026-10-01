@@ -179,7 +179,7 @@ public class ClaudeProvider : IUsageProvider
             string label;
             switch (kind)
             {
-                case "session": label = "Current session"; break;
+                case "session": label = "5-hour limit"; break;
                 case "weekly_all": label = "All models"; break;
                 case "weekly_scoped":
                     label = GetNestedString(item, "scope", "model", "display_name")
@@ -203,7 +203,7 @@ public class ClaudeProvider : IUsageProvider
         var windows = new List<UsageWindow>();
         (string Key, string Label)[] ordered =
         {
-            ("five_hour", "Current session"),
+            ("five_hour", "5-hour limit"),
             ("seven_day", "All models"),
             ("seven_day_sonnet", "Sonnet"),
             ("seven_day_opus", "Opus"),
@@ -327,7 +327,7 @@ public class ClaudeProvider : IUsageProvider
         Name = name,
         Windows = new()
         {
-            new UsageWindow { Label = "Current session", UsedPercent = 73, ResetsAt = DateTime.Now.AddMinutes(51) },
+            new UsageWindow { Label = "5-hour limit", UsedPercent = 73, ResetsAt = DateTime.Now.AddMinutes(51) },
             new UsageWindow { Label = "All models", UsedPercent = 7, ResetsAt = DateTime.Now.AddHours(36) },
             new UsageWindow { Label = "Fable", UsedPercent = 4, ResetsAt = DateTime.Now.AddHours(36) },
         },

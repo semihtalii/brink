@@ -7,7 +7,7 @@ namespace Brink;
 
 public class UsageWindow
 {
-    public string Label { get; set; } = "";     // "Current session", "All models"...
+    public string Label { get; set; } = "";     // "5-hour limit", "All models"...
     public double UsedPercent { get; set; }     // 0...100
     public DateTime? ResetsAt { get; set; }     // local time
 

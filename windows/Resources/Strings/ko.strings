@@ -49,3 +49,6 @@
 /* Empty state */
 "No CLI found" = "CLI를 찾을 수 없음";
 "Brink reads your local logins. Sign in to Claude Code, Codex CLI or Cursor CLI and its ring appears automatically." = "Brink는 로컬 로그인 정보를 읽습니다. Claude Code, Codex CLI 또는 Cursor CLI에 로그인하면 링이 자동으로 나타납니다.";
+"5-hour limit" = "5시간 한도";
+"Weekly limit" = "주간 한도";
+"5-hour" = "5시간";

@@ -49,3 +49,6 @@
 /* Empty state */
 "No CLI found" = "Nessuna CLI trovata";
 "Brink reads your local logins. Sign in to Claude Code, Codex CLI or Cursor CLI and its ring appears automatically." = "Brink legge i tuoi accessi locali. Accedi a Claude Code, Codex CLI o Cursor CLI e il suo anello compare automaticamente.";
+"5-hour limit" = "Limite di 5 ore";
+"Weekly limit" = "Limite settimanale";
+"5-hour" = "5 ore";
