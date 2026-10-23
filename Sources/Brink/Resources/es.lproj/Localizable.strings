@@ -72,3 +72,7 @@
 "Month" = "Mes";
 "All" = "Todo";
 "share of the work in this range" = "parte del trabajo en este periodo";
+
+/* Codex window duration */
+// TODO translate
+"5-hour" = "5-hour";

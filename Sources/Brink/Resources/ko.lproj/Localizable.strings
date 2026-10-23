@@ -72,3 +72,7 @@
 "Month" = "월";
 "All" = "전체";
 "share of the work in this range" = "이 기간 작업 중 비중";
+
+/* Codex window duration */
+// TODO translate
+"5-hour" = "5-hour";

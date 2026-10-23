@@ -87,19 +87,36 @@ struct CodexProvider: UsageProvider {
             ("secondary_window", "Weekly"),
             ("secondary", "Weekly"),
         ]
-        var seenLabels = Set<String>()
-        for (key, label) in ordered {
-            guard !seenLabels.contains(label),
+        var seenSlots = Set<String>()
+        for (key, fallbackLabel) in ordered {
+            guard !seenSlots.contains(fallbackLabel),
                   let dict = rateLimit[key] as? [String: Any],
                   let pct = ClaudeProvider.number(dict["used_percent"]) else { continue }
+            // A weekly-only plan can return its weekly quota in primary_window.
+            // The slot is not the quota period; use the reported duration when available.
+            let label: String
+            switch ClaudeProvider.number(dict["limit_window_seconds"]) {
+            case 18_000: label = "5-hour"
+            case 604_800: label = "Weekly"
+            default: label = fallbackLabel
+            }
             windows.append(UsageWindow(label: label, usedPercent: pct,
                                        resetsAt: Self.resetDate(dict)))
-            seenLabels.insert(label)
+            seenSlots.insert(fallbackLabel)
         }
         return windows
     }
 
     static func resetDate(_ dict: [String: Any]) -> Date? {
+        // Current Codex responses use reset_at / reset_after_seconds. Keep the
+        // older plural field names below for compatibility with previous responses.
+        if let epoch = ClaudeProvider.number(dict["reset_at"]) {
+            let seconds = epoch > 10_000_000_000 ? epoch / 1000.0 : epoch
+            return Date(timeIntervalSince1970: seconds)
+        }
+        if let seconds = ClaudeProvider.number(dict["reset_after_seconds"]) {
+            return Date().addingTimeInterval(seconds)
+        }
         if let s = ClaudeProvider.number(dict["resets_in_seconds"]) {
             return Date().addingTimeInterval(s)
         }

@@ -72,3 +72,7 @@
 "Month" = "月";
 "All" = "全体";
 "share of the work in this range" = "この期間の作業に占める割合";
+
+/* Codex window duration */
+// TODO translate
+"5-hour" = "5-hour";
