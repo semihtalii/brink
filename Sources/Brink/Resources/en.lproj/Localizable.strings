@@ -83,3 +83,6 @@
 "Month" = "Month";
 "All" = "All";
 "share of the work in this range" = "share of the work in this range";
+
+/* Codex window duration */
+"5-hour" = "5-hour";

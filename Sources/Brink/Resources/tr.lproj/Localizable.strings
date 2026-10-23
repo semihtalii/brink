@@ -83,3 +83,7 @@
 "Month" = "Ay";
 "All" = "Tümü";
 "share of the work in this range" = "bu aralıktaki işin payı";
+
+/* Codex window duration */
+// TODO translate
+"5-hour" = "5-hour";

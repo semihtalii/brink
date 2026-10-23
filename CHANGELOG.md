@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed
+- macOS: Codex reset times now read `reset_at` / `reset_after_seconds`, while retaining older field names. Five-hour and weekly quota labels follow `limit_window_seconds`, including weekly-only plans that report their quota in `primary_window`.
+
 ## [0.6.0] - 2026-08-31
 
 ### Added

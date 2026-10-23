@@ -72,3 +72,6 @@
 "Month" = "本月";
 "All" = "全部";
 "share of the work in this range" = "该期间工作量的占比";
+
+/* Codex window duration */
+"5-hour" = "5 小时";
